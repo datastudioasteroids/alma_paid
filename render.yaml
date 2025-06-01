@@ -3,7 +3,7 @@ services:
     name: alma-paid
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port 10000"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: MP_ACCESS_TOKEN
         value: APP_USR-6935004152089157-053015-96617ea4daba23d8080b7cf99937ecef-1062548502
