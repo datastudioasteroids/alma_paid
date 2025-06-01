@@ -1,0 +1,84 @@
+<!-- app/templates/admin/students.html -->
+{% extends 'admin/base.html' %}
+{% block title %}Gestión de Estudiantes{% endblock %}
+
+{% block content %}
+<h2>Estudiantes</h2>
+
+<!-- Tabla de Estudiantes -->
+<table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>DNI</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for s in students %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.email or '-' }}</td>
+            <td>{{ s.dni or '-' }}</td>
+            <td>{{ s.status }}</td>
+            <td>
+                <!-- Editar → recarga la misma página con ?edit_id={{ s.id }} -->
+                <a href="/admin/students?edit_id={{ s.id }}"><button>✏ Editar</button></a>
+                <!-- Eliminar → llama a la ruta GET /admin/students/delete/<id> -->
+                <a href="/admin/students/delete/{{ s.id }}" onclick="return confirm('¿Eliminar a {{ s.name }}?');">
+                  <button>🗑 Eliminar</button>
+                </a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<hr>
+
+<!-- Formulario Crear/Editar -->
+{% if student_to_edit %}
+    <h3>Editar Estudiante (ID {{ student_to_edit.id }})</h3>
+{% else %}
+    <h3>Agregar Nuevo Estudiante</h3>
+{% endif %}
+
+<form method="post" action="/admin/students">
+    <!-- Si estamos editando, colocamos el id en un hidden; si no, queda vacío -->
+    <input type="hidden" name="id" value="{{ student_to_edit.id if student_to_edit else '' }}" />
+
+    <label>
+        Nombre:<br>
+        <input type="text" name="name" value="{{ student_to_edit.name if student_to_edit else '' }}" required />
+    </label><br><br>
+
+    <label>
+        Email:<br>
+        <input type="email" name="email" value="{{ student_to_edit.email if student_to_edit else '' }}" />
+    </label><br><br>
+
+    <label>
+        DNI:<br>
+        <input type="text" name="dni" value="{{ student_to_edit.dni if student_to_edit else '' }}" />
+    </label><br><br>
+
+    <label>
+        Estado:<br>
+        <select name="status">
+            <option value="activo" {% if student_to_edit and student_to_edit.status == 'activo' %}selected{% endif %}>Activo</option>
+            <option value="inactivo" {% if student_to_edit and student_to_edit.status == 'inactivo' %}selected{% endif %}>Inactivo</option>
+        </select>
+    </label><br><br>
+
+    <button type="submit">
+        {% if student_to_edit %}Actualizar Estudiante{% else %}Guardar Estudiante{% endif %}
+    </button>
+    {% if student_to_edit %}
+        <a href="/admin/students"><button type="button">Cancelar</button></a>
+    {% endif %}
+</form>
+{% endblock %}

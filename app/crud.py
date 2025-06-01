@@ -1,0 +1,117 @@
+# app/crud.py
+from datetime import date
+from sqlalchemy.orm import Session
+from . import models, schemas
+
+# -------- ESTUDIANTES --------
+def get_student(db: Session, student_id: int):
+    return db.query(models.Student).filter(models.Student.id == student_id).first()
+
+def list_students(db: Session):
+    return db.query(models.Student).all()
+
+def create_student(db: Session, data: schemas.StudentCreate):
+    s = models.Student(
+        name=data.name,
+        email=data.email,
+        dni=data.dni,
+        status=data.status
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+def update_student(db: Session, data: schemas.StudentUpdate):
+    s = get_student(db, data.id)
+    if s:
+        s.name   = data.name
+        s.email  = data.email
+        s.dni    = data.dni
+        s.status = data.status
+        db.commit()
+        db.refresh(s)
+    return s
+
+def delete_student(db: Session, student_id: int):
+    s = get_student(db, student_id)
+    if s:
+        db.delete(s)
+        db.commit()
+        return True
+    return False
+
+# -------- CURSOS --------
+def get_course(db: Session, course_id: int):
+    return db.query(models.Course).filter(models.Course.id == course_id).first()
+
+def list_courses(db: Session):
+    return db.query(models.Course).all()
+
+def create_course(db: Session, data: schemas.CourseCreate):
+    c = models.Course(
+        title=data.title,
+        monthly_fee=data.monthly_fee
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+def update_course(db: Session, data: schemas.CourseUpdate):
+    c = get_course(db, data.id)
+    if c:
+        c.title = data.title
+        c.monthly_fee = data.monthly_fee
+        db.commit()
+        db.refresh(c)
+    return c
+
+def delete_course(db: Session, course_id: int):
+    c = get_course(db, course_id)
+    if c:
+        db.delete(c)
+        db.commit()
+        return True
+    return False
+# -------- INSCRIPCIONES --------
+def get_enrollment(db: Session, enrollment_id: int):
+    return db.query(models.Enrollment).filter(models.Enrollment.id == enrollment_id).first()
+
+def list_enrollments(db: Session):
+    return db.query(models.Enrollment).all()
+
+def create_enrollment(db: Session, data: schemas.EnrollmentCreate):
+    e = models.Enrollment(
+        student_id=data.student_id,
+        course_id=data.course_id,
+        status=data.status
+    )
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return e
+
+def delete_enrollment(db: Session, enrollment_id: int):
+    e = get_enrollment(db, enrollment_id)
+    if e:
+        db.delete(e)
+        db.commit()
+        return True
+    return False
+
+# -------- FACTURACIÓN (Due) --------
+def calculate_due_for_student(db: Session, student_id: int):
+    s = get_student(db, student_id)
+    if not s:
+        return 0.0, 0.0, 0.0
+    fees = [en.course.monthly_fee for en in s.enrollments]
+    subtotal = sum(fees)
+    today = date.today()
+    cutoff = date(2025, 6, 10)
+    surcharge = 2000.0 if today >= cutoff else 0.0
+    total = subtotal + surcharge
+    return subtotal, surcharge, total
+
+def calculate_next_month_due_for_student(db: Session, student_id: int):
+    return calculate_due_for_student(db, student_id)

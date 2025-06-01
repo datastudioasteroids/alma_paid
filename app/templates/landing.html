@@ -1,0 +1,62 @@
+<!-- app/templates/landing.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>AlmaPaid – Pago de Talleres</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <!-- Header con logo, título y botón admin -->
+    <div class="header">
+        <img src="/static/logo.png" alt="AlmaPaid Logo" width="200" />
+        <h1>AlmaPaid – Pago de Talleres</h1>
+        <a href="/login"><button class="admin-button" type="button">Solo para administradores</button></a>
+    </div>
+
+    <!-- Mensaje de estado -->
+    {% if message %}
+        <p class="info">{{ message }}</p>
+    {% endif %}
+
+    <!-- Form de búsqueda -->
+    <form method="get" action="/search" class="search-form">
+        <input
+            type="text"
+            name="term"
+            value="{{ term|default('') }}"
+            placeholder="Buscar por nombre, DNI, email o estado"
+        />
+        <button type="submit">Buscar</button>
+    </form>
+
+    <!-- Si hay un alumno hallado -->
+    {% if student %}
+        <div class="student-section">
+            <h2>
+                Hola, {{ student.name }}
+                {% if student.dni %}(DNI: {{ student.dni }}){% endif %}
+            </h2>
+
+            <h3>Detalle de cursos:</h3>
+            <ul>
+                {% for title, fee in courses %}
+                    <li>{{ title }}: ${{ '%.2f' % fee }}</li>
+                {% endfor %}
+            </ul>
+
+            <p><strong>Subtotal mensual:</strong> ${{ '%.2f' % (total - surcharge) }}</p>
+            <p><strong>Recargo (si corresponde):</strong> ${{ '%.2f' % surcharge }}</p>
+            <p><strong>Total a pagar:</strong> ${{ '%.2f' % total }}</strong></p>
+
+            <!-- Botón que llama al endpoint /pay/{student_id} -->
+            <div class="payment-section">
+                <h3>Pagar</h3>
+                <a href="/pay/{{ student.id }}">
+                    <button type="button">Ir a Mercado Pago</button>
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</body>
+</html>

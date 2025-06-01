@@ -1,0 +1,67 @@
+/* app/static/styles.css */
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #fdfdfd;
+    padding: 30px;
+}
+
+input {
+    padding: 10px;
+    font-size: 16px;
+    width: 300px;
+}
+
+button {
+    padding: 10px 20px;
+    margin-top: 10px;
+}
+
+p.info {
+    color: green;
+    font-weight: bold;
+}
+
+nav a {
+    margin-right: 10px;
+    text-decoration: none;
+}
+
+.container {
+    margin: 20px;
+    text-align: left;
+}
+.back-buttons {
+    margin: 20px;
+}
+.back-buttons a + a {
+    margin-left: 10px;
+}
+.back-buttons button {
+    background-color: #888;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.back-buttons button:hover {
+    background-color: #555;
+}
+
+/* Ya tenías lo demás… */
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #fdfdfd;
+    padding: 30px;
+}
+nav a {
+    margin-right: 10px;
+    text-decoration: none;
+    color: #333;
+}
+.container {
+    margin: 20px;
+    text-align: left;
+}
