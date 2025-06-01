@@ -10,4 +10,4 @@ services:
       - key: CBU_ALIAS
         value: TU_ALIAS_CBU_AQUI
       - key: BASE_URL
-        value: http://127.0.0.1:8000/
+        value: https://alma-paid.onrender.com
