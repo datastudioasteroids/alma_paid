@@ -2,61 +2,66 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>AlmaPaid – Pago de Talleres</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+  <meta charset="UTF-8" />
+  <title>AlmaPaid – Pago de Talleres</title>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-    <!-- Header con logo, título y botón admin -->
-    <div class="header">
-        <img src="/static/logo.png" alt="AlmaPaid Logo" width="200" />
-        <h1>AlmaPaid – Pago de Talleres</h1>
-        <a href="/login"><button class="admin-button" type="button">Solo para administradores</button></a>
-    </div>
+  <!-- Header con logo, título y botón admin -->
+  <div class="header">
+    <img src="/static/logo.png" alt="AlmaPaid Logo" width="200" />
+    <h1>AlmaPaid – Pago de Talleres</h1>
+    <a href="/login">
+      <button class="admin-button" type="button">Solo para administradores</button>
+    </a>
+  </div>
 
-    <!-- Mensaje de estado -->
-    {% if message %}
-        <p class="info">{{ message }}</p>
+  <main>
+    <!-- Si hubo algún error genérico (p. ej. no encontró alumnos) -->
+    {% if error %}
+      <p class="error-message">{{ error }}</p>
     {% endif %}
 
-    <!-- Form de búsqueda -->
-    <form method="get" action="/search" class="search-form">
-        <input
-            type="text"
-            name="term"
-            value="{{ term|default('') }}"
-            placeholder="Buscar por nombre, DNI, email o estado"
-        />
-        <button type="submit">Buscar</button>
+    <!-- Si Mercado Pago devolvió un error al crear la preferencia -->
+    {% if error_mp %}
+      <p class="error-message">
+        Error de Mercado Pago:
+        <pre>{{ error_mp | tojson(indent=2) }}</pre>
+      </p>
+    {% endif %}
+
+    <!-- Si hay múltiples coincidencias, las listamos para que el usuario refine la búsqueda -->
+    {% if multiple %}
+      <div class="multiple-results">
+        <h3>Se encontraron varias coincidencias:</h3>
+        <ul>
+          {% for s in multiple %}
+            <li>
+              <strong>{{ s.name }}</strong>
+              {% if s.dni %}(DNI: {{ s.dni }}){% endif %}
+              {% if s.email %}– Email: {{ s.email }}{% endif %}
+              {% if s.status %}– Estado: {{ s.status }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p>Por favor, probá nuevamente con datos más precisos.</p>
+      </div>
+    {% endif %}
+
+    <!-- Formulario principal de búsqueda y creación de preferencia -->
+    <form method="post" action="/create_preference" class="search-form">
+      <label for="term">Buscá por nombre, DNI, email o estado:</label><br>
+      <input
+        type="text"
+        id="term"
+        name="term"
+        value="{{ term|default('') }}"
+        placeholder="Ej. Juan Pérez, 12345678, correo@ejemplo.com"
+        required
+      />
+      <button type="submit">Continuar a pago</button>
     </form>
-
-    <!-- Si hay un alumno hallado -->
-    {% if student %}
-        <div class="student-section">
-            <h2>
-                Hola, {{ student.name }}
-                {% if student.dni %}(DNI: {{ student.dni }}){% endif %}
-            </h2>
-
-            <h3>Detalle de cursos:</h3>
-            <ul>
-                {% for title, fee in courses %}
-                    <li>{{ title }}: ${{ '%.2f' % fee }}</li>
-                {% endfor %}
-            </ul>
-
-            <p><strong>Subtotal mensual:</strong> ${{ '%.2f' % (total - surcharge) }}</p>
-            <p><strong>Recargo (si corresponde):</strong> ${{ '%.2f' % surcharge }}</p>
-            <p><strong>Total a pagar:</strong> ${{ '%.2f' % total }}</strong></p>
-
-            <!-- Botón que llama al endpoint /pay/{student_id} -->
-            <div class="payment-section">
-                <h3>Pagar</h3>
-                <a href="/pay/{{ student.id }}">
-                    <button type="button">Ir a Mercado Pago</button>
-                </a>
-            </div>
-        </div>
-    {% endif %}
+  </main>
 </body>
 </html>
+
