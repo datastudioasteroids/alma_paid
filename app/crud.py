@@ -1,4 +1,5 @@
 # app/crud.py
+
 from datetime import date
 from sqlalchemy.orm import Session
 from . import models, schemas
@@ -25,10 +26,11 @@ def create_student(db: Session, data: schemas.StudentCreate):
 def update_student(db: Session, data: schemas.StudentUpdate):
     s = get_student(db, data.id)
     if s:
-        s.name   = data.name
-        s.email  = data.email
-        s.dni    = data.dni
-        s.status = data.status
+        s.name           = data.name
+        s.email          = data.email
+        s.dni            = data.dni
+        s.status         = data.status
+        s.last_paid_date = data.last_paid_date  # <-- Aquí tomamos en cuenta la fecha de pago si se envía
         db.commit()
         db.refresh(s)
     return s
@@ -40,6 +42,7 @@ def delete_student(db: Session, student_id: int):
         db.commit()
         return True
     return False
+
 
 # -------- CURSOS --------
 def get_course(db: Session, course_id: int):
@@ -61,7 +64,7 @@ def create_course(db: Session, data: schemas.CourseCreate):
 def update_course(db: Session, data: schemas.CourseUpdate):
     c = get_course(db, data.id)
     if c:
-        c.title = data.title
+        c.title       = data.title
         c.monthly_fee = data.monthly_fee
         db.commit()
         db.refresh(c)
@@ -74,6 +77,8 @@ def delete_course(db: Session, course_id: int):
         db.commit()
         return True
     return False
+
+
 # -------- INSCRIPCIONES --------
 def get_enrollment(db: Session, enrollment_id: int):
     return db.query(models.Enrollment).filter(models.Enrollment.id == enrollment_id).first()
@@ -100,6 +105,7 @@ def delete_enrollment(db: Session, enrollment_id: int):
         return True
     return False
 
+
 # -------- FACTURACIÓN (Due) --------
 def calculate_due_for_student(db: Session, student_id: int):
     s = get_student(db, student_id)
@@ -114,4 +120,33 @@ def calculate_due_for_student(db: Session, student_id: int):
     return subtotal, surcharge, total
 
 def calculate_next_month_due_for_student(db: Session, student_id: int):
+    # (Supone misma lógica para el próximo mes, igual que el mes actual)
     return calculate_due_for_student(db, student_id)
+
+
+# -------- PAYMENTS (nuevo) --------
+def create_payment(db: Session, data: schemas.PaymentCreate):
+    """
+    Crea un registro en la tabla 'payments' con un pago nuevo.
+    """
+    p = models.Payment(
+        student_id = data.student_id,
+        amount     = data.amount,
+        paid_date  = data.paid_date
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+def mark_student_paid(db: Session, student_id: int, paid_date: date):
+    """
+    Actualiza el campo 'last_paid_date' del estudiante para indicar que pagó.
+    """
+    s = get_student(db, student_id)
+    if s:
+        s.last_paid_date = paid_date
+        db.commit()
+        db.refresh(s)
+    return s
+
