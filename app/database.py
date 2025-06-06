@@ -2,23 +2,19 @@
 
 import os
 import sys
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # ----------------------------------------------------------------------
 # 1) Lectura y saneamiento de la URL de conexión
 # ----------------------------------------------------------------------
-# Preferimos obtener la URL de entorno; si no existe, usamos la cadena por defecto.
 raw_url = os.getenv(
     "DATABASE_URL",
+    # URL por defecto (pero en producción siempre vendrá desde Render)
     "postgresql://almapaid_user:7iXZmLPXzDBuDg9u8Lxa5O8xWkELLvg7@dpg-d11bhhumcj7s73a2g1og-a.oregon-postgres.render.com/almapaid"
 )
-
-# Aplicamos strip() para eliminar espacios o saltos de línea accidentales al inicio o final.
 DATABASE_URL = raw_url.strip()
-
-# Si, tras hacer strip(), la URL queda vacía o no válida, detenemos la aplicación.
 if not DATABASE_URL:
     sys.stderr.write("ERROR: DATABASE_URL no está definida o quedó vacía después de strip().\n")
     sys.exit(1)
@@ -26,7 +22,6 @@ if not DATABASE_URL:
 # ----------------------------------------------------------------------
 # 2) Crear el engine de SQLAlchemy apuntando a PostgreSQL
 # ----------------------------------------------------------------------
-# Al pasar DATABASE_URL limpia, evitamos errores de 'database does not exist'
 try:
     engine = create_engine(DATABASE_URL)
 except Exception as e:
@@ -34,12 +29,27 @@ except Exception as e:
     sys.exit(1)
 
 # ----------------------------------------------------------------------
-# 3) SessionLocal: fábrica de sesiones para PostgreSQL
+# 3) Asegurarnos de que la columna `last_paid_date` exista en Postgres
 # ----------------------------------------------------------------------
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Ejecutamos un ALTER TABLE ... ADD COLUMN IF NOT EXISTS justo al iniciar
+# (esto no afecta tablas que ya tienen la columna; en otras, la crea).
+with engine.connect() as conn:
+    try:
+        conn.execute(
+            text("""
+                ALTER TABLE students
+                ADD COLUMN IF NOT EXISTS last_paid_date DATE;
+            """)
+        )
+    except Exception as alter_err:
+        # Si hubiese algún problema (e.g. la tabla ni siquiera existe), lo notificamos
+        sys.stderr.write(f"WARNING: No se pudo asegurarse la columna last_paid_date:\n{alter_err}\n")
+        # No hacemos sys.exit(1) porque quizá estemos en la primera creación de tablas.
+        # La siguiente llamada a create_all() resolverá la creación de tablas nuevas.
 
 # ----------------------------------------------------------------------
-# 4) Base declarativa para los modelos
+# 4) SessionLocal y Base declarativa
 # ----------------------------------------------------------------------
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
