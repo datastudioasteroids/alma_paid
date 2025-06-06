@@ -7,42 +7,39 @@ from starlette.middleware.sessions import SessionMiddleware
 # Importamos engine y Base desde database.py
 from .database import engine, Base
 
-# Importar modelos aquí, para que SQLAlchemy conozca todas las tablas
+# Importamos los modelos para que SQLAlchemy conozca todas las tablas
 from . import models
 
-# Para enviar consultas SQL crudas
+# Para ejecutar SQL crudo
 from sqlalchemy import text
-
-# ----------------------------------------------------------------------
-# 1) Asegurarnos de que la columna 'last_paid_date' exista en la tabla 'students'
-# ----------------------------------------------------------------------
-# Ejecutamos ALTER TABLE ... ADD COLUMN IF NOT EXISTS
-# Si la tabla 'students' aún no existe, este bloque fallará y lo capturamos.
-with engine.connect() as conn:
-    try:
-        conn.execute(
-            text("""
-                ALTER TABLE students
-                ADD COLUMN IF NOT EXISTS last_paid_date DATE;
-            """)
-        )
-    except Exception as alter_err:
-        # Si falla (por ejemplo, porque 'students' no existe), lo ignoramos.
-        # Luego create_all() creará la tabla completa con last_paid_date.
-        print(f"WARNING: No se pudo agregar last_paid_date (tal vez 'students' no existe aún): {alter_err}")
-
-# ----------------------------------------------------------------------
-# 2) Crear todas las tablas que falten (students, courses, enrollments, payments, etc.)
-# ----------------------------------------------------------------------
-# Esto crea la tabla 'students' con 'last_paid_date' integrada si no existía
-Base.metadata.create_all(bind=engine)
-
-
-# ----------------- Definición de la app FastAPI -----------------
 
 app = FastAPI()
 
-# Middleware de sesión (para ensure_admin en rutas admin)
+# ----------------------------------------------------------------------
+# 1) Evento de arranque: aseguramos que last_paid_date exista en 'students'
+# ----------------------------------------------------------------------
+@app.on_event("startup")
+def on_startup():
+    # a) Agregar columna si falta
+    with engine.connect() as conn:
+        try:
+            conn.execute(
+                text("""
+                    ALTER TABLE students
+                    ADD COLUMN IF NOT EXISTS last_paid_date DATE;
+                """)
+            )
+        except Exception as alter_err:
+            # Si la tabla 'students' no existe aún, lo ignoramos.
+            print(f"WARNING: No se pudo agregar last_paid_date (posiblemente 'students' no existe): {alter_err}")
+
+    # b) Crear tablas que falten (incluyendo 'students' completo en un primer deploy)
+    Base.metadata.create_all(bind=engine)
+
+
+# ----------------- Configuración de la app -----------------
+
+# Middleware de sesión (necesario para ensure_admin)
 app.add_middleware(
     SessionMiddleware,
     secret_key="CAMBIÁ_ESTA_CLAVE_POR_ALGO_AZAR"
@@ -51,17 +48,18 @@ app.add_middleware(
 # Montar carpeta de archivos estáticos (CSS, JS, imágenes)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Incluir routers
+# Incluir routers (después de la migración)
 from .routes import landing, admin
 from .auth import router as auth_router
 
-app.include_router(landing.router)   # Rutas públicas ("/", "/create_preference", "/payment/...")
-app.include_router(auth_router)      # Rutas de login/logout
-app.include_router(admin.router)     # Rutas administrativas bajo "/admin"
+app.include_router(landing.router)   # Rutas públicas
+app.include_router(auth_router)      # Login/logout
+app.include_router(admin.router)     # Rutas admin (/admin)
 
 # Ruta raíz opcional
 @app.get("/", include_in_schema=False)
 async def root_redirect():
     return {"message": "Visita / para ir a la página principal de AlmaPaid."}
+
 
 
