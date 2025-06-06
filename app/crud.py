@@ -105,6 +105,15 @@ def delete_enrollment(db: Session, enrollment_id: int):
         return True
     return False
 
+# — NUEVA FUNCIÓN: Obtener cursos de un estudiante —
+def get_courses_for_student(db: Session, student_id: int):
+    """
+    Devuelve una lista de objetos Course para el estudiante dado,
+    buscando en la tabla Enrollment los cursos asociados.
+    """
+    enrollments = db.query(models.Enrollment).filter(models.Enrollment.student_id == student_id).all()
+    return [en.course for en in enrollments]
+
 
 # -------- FACTURACIÓN (Due) --------
 def calculate_due_for_student(db: Session, student_id: int):
@@ -149,4 +158,5 @@ def mark_student_paid(db: Session, student_id: int, paid_date: date):
         db.commit()
         db.refresh(s)
     return s
+
 
