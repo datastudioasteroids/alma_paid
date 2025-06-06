@@ -6,30 +6,29 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .database import Base, engine
 from .routes import landing, admin
-from .auth import router as auth_router  # Importamos las rutas de autenticación
+from .auth import router as auth_router  # tu módulo de autenticación
 
-# 1) Crear tablas si no existen (incluyendo la nueva tabla "payments")
+# 1) Crear (si no existen) todas las tablas definidas en Base.metadata sobre Postgres
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# 2) Middleware de sesión (necesario para usar request.session en ensure_admin)
+# 2) Middleware de sesiones (necesario para ensure_admin)
 app.add_middleware(
     SessionMiddleware,
-    secret_key="CAMBIÁ_ESTA_CLAVE_POR_ALGO_AZAR"  # Reemplazá por un string aleatorio y secreto
+    secret_key="TU_CLAVE_SECRETA_ALEATORIA"  # reemplázala por algo secreto
 )
 
-# 3) Montar carpeta de archivos estáticos (CSS, JS, imágenes)
+# 3) Montar archivos estáticos (CSS, JS, imágenes)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # 4) Incluir routers
-app.include_router(landing.router)   # Rutas públicas: "/", "/create_preference", "/payment/..."
-app.include_router(auth_router)      # Rutas de login/logout
-app.include_router(admin.router)     # Rutas administrativas protegidas bajo "/admin"
+app.include_router(landing.router)   # rutas públicas: "/", "/create_preference", "/payment/..."
+app.include_router(auth_router)      # rutas de login/logout
+app.include_router(admin.router)     # rutas administrativas bajo "/admin"
 
-# 5) (Opcional) Ruta raíz que redirige o muestra un mensaje
+# 5) (Opcional) ruta raíz
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    # Puesto que landing.router ya define GET "/", esto es opcional.
-    # Podrías redirigir directamente a "/": return RedirectResponse(url="/")
     return {"message": "Visita / para ir a la página principal de AlmaPaid."}
+
