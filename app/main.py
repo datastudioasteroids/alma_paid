@@ -4,23 +4,20 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-# Importamos engine y Base desde database.py
+# 1) Importar engine, Base y modelos
 from .database import engine, Base
+from . import models   # para que SQLAlchemy conozca todas las tablas
 
-# Importamos los modelos para que SQLAlchemy conozca todas las tablas
-from . import models
-
-# Para ejecutar SQL crudo
 from sqlalchemy import text
 
 app = FastAPI()
 
 # ----------------------------------------------------------------------
-# 1) Evento de arranque: aseguramos que last_paid_date exista en 'students'
+# 2) Evento de arranque: correr migración ANTES de exponer rutas
 # ----------------------------------------------------------------------
 @app.on_event("startup")
 def on_startup():
-    # a) Agregar columna si falta
+    print(">>> STARTUP: asegurando columna last_paid_date …")
     with engine.connect() as conn:
         try:
             conn.execute(
@@ -29,34 +26,35 @@ def on_startup():
                     ADD COLUMN IF NOT EXISTS last_paid_date DATE;
                 """)
             )
+            print(">>> last_paid_date: columna confirmada o ya existía.")
         except Exception as alter_err:
-            # Si la tabla 'students' no existe aún, lo ignoramos.
-            print(f"WARNING: No se pudo agregar last_paid_date (posiblemente 'students' no existe): {alter_err}")
+            # Si 'students' no existe aún (primer deploy), se ignora el error.
+            print(f">>> WARNING: No se pudo agregar last_paid_date: {alter_err}")
 
-    # b) Crear tablas que falten (incluyendo 'students' completo en un primer deploy)
+    # Crear tablas nuevas que falten (incluye students con su columna)
     Base.metadata.create_all(bind=engine)
+    print(">>> create_all(): tablas creadas o ya existentes.")
 
-
-# ----------------- Configuración de la app -----------------
-
-# Middleware de sesión (necesario para ensure_admin)
+# ----------------------------------------------------------------------
+# 3) Middleware de sesión (mantener tal cual, solo cambia la clave)
+# ----------------------------------------------------------------------
 app.add_middleware(
     SessionMiddleware,
-    secret_key="CAMBIÁ_ESTA_CLAVE_POR_ALGO_AZAR"
+    secret_key="UNA_CADENA_MUY_LARGA_Y_AZAR_QUE_CAMBIES_POR_PRODUCCIÓN"
 )
 
-# Montar carpeta de archivos estáticos (CSS, JS, imágenes)
+# ----------------------------------------------------------------------
+# 4) Montar estáticos y enrutadores *después* del evento de startup
+# ----------------------------------------------------------------------
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Incluir routers (después de la migración)
 from .routes import landing, admin
 from .auth import router as auth_router
 
-app.include_router(landing.router)   # Rutas públicas
-app.include_router(auth_router)      # Login/logout
-app.include_router(admin.router)     # Rutas admin (/admin)
+app.include_router(landing.router)
+app.include_router(auth_router)
+app.include_router(admin.router)
 
-# Ruta raíz opcional
 @app.get("/", include_in_schema=False)
 async def root_redirect():
     return {"message": "Visita / para ir a la página principal de AlmaPaid."}
