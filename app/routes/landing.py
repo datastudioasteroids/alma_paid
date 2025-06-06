@@ -9,7 +9,7 @@ import requests
 import os
 
 from ..crud import (
-    list_students,            # Usamos esta en lugar de db.query(models.Student)
+    list_students,            # Usar la función de crud en lugar de models.Student
     get_courses_for_student,
     create_payment,
     mark_student_paid,
@@ -22,7 +22,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 # --- Variables de entorno de Mercado Pago ---
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
-BASE_URL        = os.getenv("BASE_URL")  # p. ej. "https://tu-dominio.com/"
+BASE_URL        = os.getenv("BASE_URL")  # Ejemplo: "https://tu-dominio.com/"
 
 
 # -----------------------------------------------------------
@@ -46,23 +46,22 @@ def create_preference(
     db: Session = Depends(get_db)
 ):
     """
-    Busca al estudiante por el término proporcionado (name, dni, email o status).
-    Si hay exactamente un match, calcula el monto, crea la preferencia en Mercado Pago
-    y redirige al usuario al init_point de MP.
-    Si no hay matches o hay más de uno, vuelve a renderizar la landing con un mensaje de error.
+    - Recibe un término de búsqueda (nombre, correo, DNI o estado).
+    - Filtra la lista de estudiantes en la base.
+    - Si hay exactamente uno, calcula el monto, crea la preferencia en Mercado Pago y redirige.
+    - Si no hay o hay varios, vuelve a mostrar landing.html con el mensaje apropiado.
     """
-    term_l = term.lower()
+    term_l = term.strip().lower()
 
-    # 2.1) Listar todos los estudiantes y filtrar coincidencias
+    # 2.1) Listar todos los estudiantes con crud.list_students()
     alumnos = list_students(db)
     matches = []
     for s in alumnos:
-        hay = False
-        for campo in (s.name, s.dni or "", s.email or "", s.status or ""):
-            if term_l in str(campo).lower():
-                hay = True
-        if hay:
-            matches.append(s)
+        # Revisar si term_l está en alguno de los campos relevantes
+        for campo in (s.name or "", s.dni or "", s.email or "", s.status or ""):
+            if term_l in campo.lower():
+                matches.append(s)
+                break
 
     # 2.2) Si no hay coincidencias
     if not matches:
@@ -74,7 +73,7 @@ def create_preference(
             }
         )
 
-    # 2.3) Si hay múltiples coincidencias
+    # 2.3) Si hay más de una coincidencia
     if len(matches) > 1:
         return templates.TemplateResponse(
             "landing.html",
@@ -84,16 +83,16 @@ def create_preference(
             }
         )
 
-    # 2.4) Solo hay un estudiante → calcular monto a pagar
+    # 2.4) Solo hay un estudiante: calcular monto a pagar
     alumno = matches[0]
-    cursos = get_courses_for_student(db, alumno.id)
+    cursos = get_courses_for_student(db, alumno.id)  # Función de crud que devuelve objetos Course
     subtotal = sum(c.monthly_fee for c in cursos)
     today = date.today()
     cutoff = date(2025, 6, 10)
     surcharge = 2000.0 if today >= cutoff else 0.0
     total = subtotal + surcharge
 
-    # 2.5) Crear payload de preferencia de MP
+    # 2.5) Preparar payload de Mercado Pago
     payload = {
         "items": [
             {
@@ -123,7 +122,7 @@ def create_preference(
     )
     data = r.json()
 
-    # 2.6) Si MP devolvió error
+    # 2.6) Si Mercado Pago devolvió error
     if r.status_code != 201 and data.get("error"):
         return templates.TemplateResponse(
             "landing.html",
@@ -133,7 +132,7 @@ def create_preference(
             }
         )
 
-    # 2.7) Obtener el init_point (o sandbox_init_point) y redirigir
+    # 2.7) Obtener el init_point y redirigir al usuario
     link_mp = data.get("response", {}).get("init_point") or data.get("sandbox_init_point")
     return RedirectResponse(url=link_mp)
 
@@ -148,9 +147,8 @@ def payment_success(
     db: Session = Depends(get_db)
 ):
     """
-    Este endpoint es invocado por MP cuando el pago es aprobado.
-    Se espera URL con parámetros:
-       /payment/success?paid=true&ref=<studentId>-<fecha>
+    Endpoint invocado por Mercado Pago cuando el pago es aprobado.
+    Se espera: /payment/success?paid=true&ref=<studentId>-<fecha>
     """
     # 3.1) Validar parámetros
     if not paid or paid.lower() != "true" or not ref:
@@ -159,7 +157,7 @@ def payment_success(
             {"request": request}
         )
 
-    # 3.2) Extraer student_id y paid_date del ref
+    # 3.2) Extraer student_id y fecha de la referencia
     try:
         student_id_str, fecha_str = ref.split("-", 1)
         student_id = int(student_id_str)
@@ -173,13 +171,13 @@ def payment_success(
             }
         )
 
-    # 3.3) Recalcular monto (por seguridad)
+    # 3.3) Recalcular el monto por seguridad
     cursos = get_courses_for_student(db, student_id)
     subtotal = sum(c.monthly_fee for c in cursos)
     surcharge = 2000.0 if paid_date >= date(2025, 6, 10) else 0.0
     total = subtotal + surcharge
 
-    # 3.4) Registrar en tabla payments y actualizar students.last_paid_date
+    # 3.4) Registrar pago en la tabla payments y actualizar last_paid_date del estudiante
     payment_data = PaymentCreate(
         student_id = student_id,
         amount     = total,
@@ -210,6 +208,7 @@ def payment_failed(request: Request):
     )
 
 
+# -----------------------------------------------------------
 # 5) GET "/payment/pending" → Pago pendiente (opcional)
 @router.get("/payment/pending", response_class=HTMLResponse)
 def payment_pending(request: Request):
@@ -217,5 +216,4 @@ def payment_pending(request: Request):
         "payment_pending.html",
         {"request": request}
     )
-
 
