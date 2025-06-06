@@ -7,12 +7,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # ----------------------------------------------------------------------
-# 1) Lectura y saneamiento de la URL de conexión
+# 1) Leer y saneamiento de la URL de conexión a Postgres
 # ----------------------------------------------------------------------
 raw_url = os.getenv(
     "DATABASE_URL",
-    # URL por defecto (pero en producción siempre vendrá desde Render)
-    "postgresql://almapaid_user:7iXZmLPXzDBuDg9u8Lxa5O8xWkELLvg7@dpg-d11bhhumcj7s73a2g1og-a.oregon-postgres.render.com/almapaid"
+    # Esta es solo la URL por defecto para desarrollo.
+    # En producción, Render inyecta DATABASE_URL en las Environment Variables.
+    "postgresql://almapaid_user:7iXZmLPXzDBuDg9u8Lxa5O8xWkELLvg7@\
+dpg-d11bhhumcj7s73a2g1og-a.oregon-postgres.render.com/almapaid"
 )
 DATABASE_URL = raw_url.strip()
 if not DATABASE_URL:
@@ -20,7 +22,7 @@ if not DATABASE_URL:
     sys.exit(1)
 
 # ----------------------------------------------------------------------
-# 2) Crear el engine de SQLAlchemy apuntando a PostgreSQL
+# 2) Crear el engine de SQLAlchemy apuntando a la URL limpia
 # ----------------------------------------------------------------------
 try:
     engine = create_engine(DATABASE_URL)
@@ -29,10 +31,10 @@ except Exception as e:
     sys.exit(1)
 
 # ----------------------------------------------------------------------
-# 3) Asegurarnos de que la columna `last_paid_date` exista en Postgres
+# 3) Intentar ALTER TABLE para agregar last_paid_date si falta
 # ----------------------------------------------------------------------
-# Ejecutamos un ALTER TABLE ... ADD COLUMN IF NOT EXISTS justo al iniciar
-# (esto no afecta tablas que ya tienen la columna; en otras, la crea).
+#    - Si la tabla 'students' existe pero no tiene la columna, la añadimos.
+#    - Si falla porque la tabla no existe aún, capturamos el error y seguimos.
 with engine.connect() as conn:
     try:
         conn.execute(
@@ -42,14 +44,25 @@ with engine.connect() as conn:
             """)
         )
     except Exception as alter_err:
-        # Si hubiese algún problema (e.g. la tabla ni siquiera existe), lo notificamos
-        sys.stderr.write(f"WARNING: No se pudo asegurarse la columna last_paid_date:\n{alter_err}\n")
-        # No hacemos sys.exit(1) porque quizá estemos en la primera creación de tablas.
-        # La siguiente llamada a create_all() resolverá la creación de tablas nuevas.
+        # La tabla 'students' aún no existe → más adelante la crea create_all()
+        sys.stderr.write(f"WARNING: No se pudo agregar last_paid_date (puede que la tabla 'students' no exista aún):\n{alter_err}\n")
 
 # ----------------------------------------------------------------------
-# 4) SessionLocal y Base declarativa
+# 4) Importar Base para crear tablas nuevas (si no existen)
+# ----------------------------------------------------------------------
+#    Hacemos la importación aquí para evitar dependencias cíclicas.
+from .models import *  # Para que SQLAlchemy conozca todos los modelos y Base.metadata
+from .models import Base as ModelsBase
+
+# ----------------------------------------------------------------------
+# 5) Crear las tablas definidas en los modelos si no existieran
+# ----------------------------------------------------------------------
+#    Esto crea 'students' con last_paid_date integrado si la tabla no existía.
+ModelsBase.metadata.create_all(bind=engine)
+
+# ----------------------------------------------------------------------
+# 6) Configurar SessionLocal y exportar Base para usarse en el resto de la app
 # ----------------------------------------------------------------------
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+Base = ModelsBase
 
