@@ -4,61 +4,59 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from sqlalchemy import text
 from .database import Base, engine
-from . import models          # Importamos modelos para que SQLAlchemy conozca todas las tablas
+from . import models          # Para que SQLAlchemy registre todos los modelos
 from .routes import landing, admin
 from .auth import router as auth_router
 
-# 1) Antes de crear todas las tablas, chequeamos/creamos la columna 'last_paid_date' en students
 def ensure_last_paid_column_exists():
     """
-    Se conecta directamente con engine y checa en information_schema si la columna students.last_paid_date existe.
-    Si no existe, la agrega con ALTER TABLE.
+    Chequea en information_schema si existe students.last_paid_date.
+    Si no existe, ejecuta ALTER TABLE para crearla.
     """
-    # Conexión "raw" a la base de datos
     with engine.connect() as conn:
-        # Buscamos en information_schema.columns
+        # 1) Verificar si la columna ya existe:
         resultado = conn.execute(
-            """
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_name = 'students' AND column_name = 'last_paid_date';
-            """
+            text(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'students' AND column_name = 'last_paid_date';
+                """
+            )
         )
         if resultado.fetchone() is None:
-            # Si no encontramos el registro, agregamos la columna
+            # 2) Si no existe, la agregamos:
             conn.execute(
-                "ALTER TABLE students ADD COLUMN last_paid_date DATE;"
+                text("ALTER TABLE students ADD COLUMN last_paid_date DATE;")
             )
 
-
-# 2) Ejecutamos la función de "migración ligera" ANTES de create_all
+# 1) Primero, nos aseguramos de que la columna exista en la BD:
 ensure_last_paid_column_exists()
 
-# 3) Luego, creamos las tablas (sólo las que falten)
+# 2) Luego creamos las tablas que falten (sin alterar las ya existentes):
 Base.metadata.create_all(bind=engine)
 
-# 4) Inicializamos FastAPI
+# 3) Inicializamos la aplicación FastAPI
 app = FastAPI()
 
-# 5) Middleware de sesión (necesario para ensure_admin)
+# 4) Middleware de sesión (para proteger rutas admin, etc.)
 app.add_middleware(
     SessionMiddleware,
     secret_key="CAMBIÁ_ESTA_CLAVE_POR_ALGO_AZAR"
 )
 
-# 6) Montamos recursos estáticos
+# 5) Montar directorio estático
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# 7) Incluir routers
-app.include_router(landing.router)   # Rutas públicas: "/", "/create_preference", "/payment/..."
-app.include_router(auth_router)      # Rutas de login/logout
-app.include_router(admin.router)     # Rutas administrativas protegidas bajo "/admin"
+# 6) Incluir routers
+app.include_router(landing.router)   # Rutas públicas ("/", "/create_preference", etc.)
+app.include_router(auth_router)      # Ruta de login/logout
+app.include_router(admin.router)     # Rutas administrativas bajo "/admin"
 
-# 8) (Opcional) Ruta raíz para redirigir o mostrar un mensaje
+# 7) (Opcional) Ruta raíz para redirigir o mensaje
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    # landing.router ya define GET "/", así que esto es opcional.
     return {"message": "Visita / para ir a la página principal de AlmaPaid."}
-
 
