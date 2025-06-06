@@ -1,5 +1,3 @@
-# app/crud.py
-
 from datetime import date
 from sqlalchemy.orm import Session
 from . import models, schemas
@@ -30,7 +28,7 @@ def update_student(db: Session, data: schemas.StudentUpdate):
         s.email          = data.email
         s.dni            = data.dni
         s.status         = data.status
-        s.last_paid_date = data.last_paid_date  # <-- Aquí tomamos en cuenta la fecha de pago si se envía
+        s.last_paid_date = data.last_paid_date  # <-- Consideramos la fecha de pago si se envía
         db.commit()
         db.refresh(s)
     return s
@@ -111,7 +109,9 @@ def get_courses_for_student(db: Session, student_id: int):
     Devuelve una lista de objetos Course para el estudiante dado,
     buscando en la tabla Enrollment los cursos asociados.
     """
-    enrollments = db.query(models.Enrollment).filter(models.Enrollment.student_id == student_id).all()
+    enrollments = db.query(models.Enrollment).filter(
+        models.Enrollment.student_id == student_id
+    ).all()
     return [en.course for en in enrollments]
 
 
