@@ -1,4 +1,3 @@
-<!-- app/templates/landing.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,7 +16,7 @@
   </div>
 
   <main>
-    <!-- Si hubo algún error genérico (p. ej. no encontró alumnos) -->
+    <!-- Si hay un mensaje de error genérico (p. ej. no encontró alumnos) -->
     {% if error %}
       <p class="error-message">{{ error }}</p>
     {% endif %}
@@ -39,8 +38,8 @@
             <li>
               <strong>{{ s.name }}</strong>
               {% if s.dni %}(DNI: {{ s.dni }}){% endif %}
-              {% if s.email %}– Email: {{ s.email }}{% endif %}
-              {% if s.status %}– Estado: {{ s.status }}{% endif %}
+              {% if s.email %} – Email: {{ s.email }}{% endif %}
+              {% if s.status %} – Estado: {{ s.status }}{% endif %}
             </li>
           {% endfor %}
         </ul>
