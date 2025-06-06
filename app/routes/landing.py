@@ -9,8 +9,8 @@ import requests
 import os
 
 from ..crud import (
-    get_student,
-    get_courses_for_student,   # <-- Ahora sí existe en crud.py
+    list_students,            # Usamos esta en lugar de db.query(models.Student)
+    get_courses_for_student,
     create_payment,
     mark_student_paid,
 )
@@ -54,7 +54,7 @@ def create_preference(
     term_l = term.lower()
 
     # 2.1) Listar todos los estudiantes y filtrar coincidencias
-    alumnos = db.query(models.Student).all()  # equivaldría a list_students(db)
+    alumnos = list_students(db)
     matches = []
     for s in alumnos:
         hay = False
@@ -86,7 +86,7 @@ def create_preference(
 
     # 2.4) Solo hay un estudiante → calcular monto a pagar
     alumno = matches[0]
-    cursos = get_courses_for_student(db, alumno.id)  # ahora existe
+    cursos = get_courses_for_student(db, alumno.id)
     subtotal = sum(c.monthly_fee for c in cursos)
     today = date.today()
     cutoff = date(2025, 6, 10)
