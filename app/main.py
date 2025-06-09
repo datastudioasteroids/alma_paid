@@ -1,15 +1,24 @@
-# app/main.py
-
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+import os
+import subprocess
 
 from .database import Base, engine
-from . import models  # Asegura que los modelos se registren en Base
+from . import models          # Asegura que los modelos se registren en Base
 from .routes import landing, admin
 from .auth import router as auth_router
 
-# Crear tablas automáticamente al iniciar si no existen
+# Ejecutar migraciones antes de crear tablas
+migrate_script = os.path.join(os.getcwd(), "migrate.py")
+if os.path.exists(migrate_script):
+    try:
+        subprocess.run(["python", migrate_script], check=True)
+        print("✅ Migraciones ejecutadas correctamente.")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"❌ Error corriendo migraciones: {e}")
+
+# Crear tablas automáticamente al iniciar si no existan (solo tablas nuevas)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
