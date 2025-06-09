@@ -5,23 +5,27 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# 1) Lectura de la URL de conexión a Postgres (Render provee esta ENV var por defecto).
+# URL de conexión a la base de datos de Render
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://almapaid_user:7iXZmLPXzDBuDg9u8Lxa5O8xWkELLvg7@dpg-d11bhhumcj7s73a2g1og-a.oregon-postgres.render.com/almapaid"
 )
 
-# 2) Creamos el engine apuntando a esa URL
+# Crear el engine con parámetros adecuados para producción
 try:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20
+    )
 except Exception as e:
-    # Si la URL está mal formateada, levantamos un error claro
-    raise RuntimeError(f"ERROR: No se pudo crear el engine con DATABASE_URL:\n  Value: {DATABASE_URL}\n  Detalle: {e}")
+    raise RuntimeError(f"❌ ERROR al crear engine con DATABASE_URL:\n{DATABASE_URL}\nDetalle: {e}")
 
-# 3) SessionLocal seguirá siendo la "fábrica" de sesiones
+# Crear fábrica de sesiones
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 4) Base declarativa para todos los modelos
+# Base para modelos ORM
 Base = declarative_base()
 
 
