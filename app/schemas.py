@@ -19,14 +19,14 @@ class StudentUpdate(StudentBase):
     last_paid_date: Optional[date] = None   # <-- Permitimos recibir/actualizar esta fecha
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class StudentOut(StudentBase):
     id: int
     last_paid_date: Optional[date]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Course ---
@@ -41,13 +41,13 @@ class CourseUpdate(CourseBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CourseOut(CourseBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Enrollment ---
@@ -63,7 +63,7 @@ class EnrollmentOut(EnrollmentBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Due (para mostrar totales en facturación) ---
@@ -73,7 +73,7 @@ class DueOut(BaseModel):
     total: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Payment ---
@@ -89,5 +89,4 @@ class PaymentOut(PaymentBase):
     id: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
